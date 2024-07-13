@@ -1,0 +1,21 @@
+build
+bin
+out
+dev
+obj
+data
+*site-packages
+
+build/*
+bin/*
+out/*
+dev/*
+obj/*
+data/*
+*site-packages/*
+
+
+
+# Added by cargo
+
+/target
