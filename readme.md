@@ -11,7 +11,11 @@
 # Operating System Setup
 
  - Install Arch Linux on the laptop (https://wiki.archlinux.org/title/installation_guide)
+    - User: `user`
  - Boot into laptop
+ - Install infrastructure tools
+    - `sudo pacman -S iwd`
+    - Set `AutoConnect=true` in `/etc/iwd/main.conf` (https://unix.stackexchange.com/a/623037)
  - Install development tools
     - `sudo pacman -S base-devel git vim rustup`
  - Install remote infrastructure
