@@ -20,7 +20,11 @@ def main(args=sys.argv):
       'sudo', 'chown', '-R', f'{os.getgid()}:{os.getuid()}', external_disk_directory
     ], check=True)
 
-
+  # Make laptop monitor dimmer
+  if os.path.exists('/sys/class/backlight/amdgpu_bl1/brightness'):
+    subprocess.run([
+      'sh', '-c', 'sudo tee /sys/class/backlight/amdgpu_bl1/brightness <<< "2"'
+    ], check=False)
 
 
 
