@@ -66,11 +66,14 @@ ffplay udp://239.0.0.1:1234
 
 ## ^^ above multicast does not work well w/ mac or windows systems b/c of the huge multicast fragmentation.
 ##    instead of searching for an allowed IP, we'll go over http instead.
-sudo systemd-run --uid=0 --gid=0 --nice=-1 --working-directory=/tmp -- \
+sudo systemd-run --uid=0 --gid=0 --nice=-1 --working-directory=/tmp --property Restart=always --property StartLimitIntervalSec=2 --unit=camera-stream -- \
   sudo ffmpeg \
     -i /dev/video2 \
     -vf "transpose=1,drawtext=fontfile=/usr/share/fonts/noto/NotoSansMono-Regular.ttf:text='%{localtime}':fontcolor=white@0.8:x=7:y=7" \
     -vcodec libx264 -tune zerolatency -preset ultrafast -listen 1 -f mp4 -movflags frag_keyframe+empty_moov -pix_fmt yuv420p -headers "Content-Type: video/mp4" http://0.0.0.0:8080
+
+sudo systemctl stop camera-stream
+sudo journalctl -f -u camera-stream
 
 # Then visit http://squirrel-scanner.local:8080/ in any browser
 
