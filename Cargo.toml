@@ -6,7 +6,7 @@ edition = "2021"
 
 [dependencies]
 tokio = { version = "1", features = ["full"] }
-
+procfs = "0.15"
 
 [dependencies.v4l]
 version = "0.14"
