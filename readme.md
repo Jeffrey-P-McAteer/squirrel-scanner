@@ -43,6 +43,7 @@
 ```bash
 # List cameras
 sudo v4l2-ctl --list-devices
+sudo v4l2-ctl --list-formats-ext
 
 # send webcam frames to local framebuffer
 sudo ffmpeg -i /dev/video2 -pix_fmt bgra -f fbdev /dev/fb0
@@ -68,9 +69,9 @@ ffplay udp://239.0.0.1:1234
 ##    instead of searching for an allowed IP, we'll go over http instead.
 sudo systemd-run --uid=0 --gid=0 --nice=-1 --working-directory=/tmp --property Restart=always --property StartLimitIntervalSec=2 --unit=camera-stream -- \
   sudo ffmpeg \
-    -i /dev/video2 \
+    -framerate 8 -video_size 1280x720 -input_format yuyv422 -i /dev/video2 \
     -vf "transpose=1,drawtext=fontfile=/usr/share/fonts/noto/NotoSansMono-Regular.ttf:text='%{localtime}':fontcolor=white@0.8:x=7:y=7" \
-    -vcodec libx264 -tune zerolatency -preset ultrafast -listen 1 -f mp4 -movflags frag_keyframe+empty_moov -pix_fmt yuv420p -headers "Content-Type: video/mp4" http://0.0.0.0:8080
+    -vcodec libx264 -tune zerolatency -preset ultrafast -listen 1 -f mp4 -movflags frag_keyframe+empty_moov -pix_fmt yuv420p -headers "Content-Type: video/mp4" "http://[::]:8080"
 
 sudo systemctl stop camera-stream
 sudo journalctl -f -u camera-stream
