@@ -85,7 +85,7 @@ sudo journalctl -f -u camera-stream
 # ^^ going to framebuffer
 sudo ffmpeg \
     -framerate 8 -video_size 1280x720 -input_format yuyv422 -i /dev/video2 \
-    -vf "transpose=1,drawtext=fontfile=/usr/share/fonts/noto/NotoSansMono-Regular.ttf:text='%{localtime}':fontcolor=white@0.8:x=7:y=7" \
+    -vf "drawtext=fontfile=/usr/share/fonts/noto/NotoSansMono-Regular.ttf:text='%{localtime}':fontcolor=white@0.8:x=7:y=7" \
     -pix_fmt bgra -f fbdev /dev/fb0
 
 
