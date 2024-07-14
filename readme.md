@@ -26,7 +26,7 @@
  - Misc
     - `sudo ln -sf ../run/systemd/resolve/stub-resolv.conf /etc/resolv.conf`
     - `sudo systemctl enable --now systemd-resolved.service`
-
+    - https://unix.stackexchange.com/a/52645
 
 
 
