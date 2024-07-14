@@ -12,6 +12,7 @@ def main(args=sys.argv):
   external_disk_canary_file = '/mnt/ext-1tb-hdd.txt'
 
   if os.path.exists(external_disk_part) and not os.path.exists(external_disk_canary_file):
+    print(f'Mounting {external_disk_part} to {external_disk_directory}')
     subprocess.run([
       'sudo', 'mount', external_disk_part, external_disk_directory
     ], check=True)
