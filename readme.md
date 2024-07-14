@@ -23,6 +23,13 @@
  - Install remote infrastructure
     - `sudo pacman -S openssh && sudo systemctl enable --now sshd`
 
+ - Misc
+    - `sudo ln -sf ../run/systemd/resolve/stub-resolv.conf /etc/resolv.conf`
+    - `sudo systemctl enable --now systemd-resolved.service`
+
+
+
+
 # Software Pipeline Setup
 
  - Clone this repository to `/opt/squirrel-scanner`
