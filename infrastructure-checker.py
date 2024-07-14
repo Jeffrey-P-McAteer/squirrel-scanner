@@ -15,6 +15,9 @@ def main(args=sys.argv):
     subprocess.run([
       'sudo', 'mount', external_disk_part, external_disk_directory
     ], check=True)
+    subprocess.run([
+      'sudo', 'chown', '-R', f'{os.getgid()}:{os.getuid()}', external_disk_directory
+    ], check=True)
 
 
 
