@@ -22,6 +22,10 @@
     - `sudo pacman -S base-devel git vim rustup python python-pip sudo less tar findutils clang`
  - Install remote infrastructure
     - `sudo pacman -S openssh && sudo systemctl enable --now sshd`
+ - Add user `user` to `video` group (& others as as we need hardware access)
+    - `sudo usermod -a -G video user`
+    - `sudo usermod -a -G wheel user`
+
 
  - Misc
     - `sudo ln -sf ../run/systemd/resolve/stub-resolv.conf /etc/resolv.conf`
