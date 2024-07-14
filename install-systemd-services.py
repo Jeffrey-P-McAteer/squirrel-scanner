@@ -13,12 +13,12 @@ def main(args=sys.argv):
     fd.write(f'''
 [Unit]
 Description=Squirrel Scanner
-StartLimitIntervalSec=1
+StartLimitIntervalSec=2
 
 [Service]
 Type=simple
 Restart=always
-RestartSec=1
+RestartSec=4
 User=user
 ExecStart={this_dir}/target/release/squirrel-scanner
 RuntimeMaxSec=180m
