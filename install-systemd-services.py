@@ -47,7 +47,7 @@ StartLimitIntervalSec=60
 [Service]
 Type=simple
 Restart=always
-RestartSec=60
+RestartSec=90
 User=user
 ExecStart={this_dir}/do-selfupdate.py
 RuntimeMaxSec=180m
