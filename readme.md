@@ -36,7 +36,29 @@
  - run `sudo python install-systemd-services.py`
 
 
+# SW/HW Research one-liners
 
+
+```bash
+# List cameras
+sudo v4l2-ctl --list-devices
+
+# send webcam frames to local framebuffer
+sudo ffmpeg -i /dev/video2 -pix_fmt bgra -f fbdev /dev/fb0
+
+# Send webcam frames to entire network over multicast
+# address 239.0.0.1 port 1234
+sudo ffmpeg -i /dev/video2 -c:v libx264 -preset ultrafast -qp 0 -f mpegts  'udp://239.0.0.1:1234?ttl=13&localaddr=192.168.5.36'
+# same thing, with filters like these: https://stackoverflow.com/a/9570992
+sudo ffmpeg -i /dev/video2 -vf "transpose=1" -c:v libx264 -preset ultrafast -qp 0 -f mpegts  'udp://239.0.0.1:1234?ttl=13'
+# Spawn the above as a small daemon
+sudo systemd-run --uid=0 --gid=0 --nice=-1 --working-directory=/tmp -- sudo ffmpeg -i /dev/video2 -vf "transpose=1" -c:v libx264 -preset ultrafast -qp 0 -f mpegts  'udp://239.0.0.1:1234?ttl=13'
+
+# Play back w/ VLC / MPV
+mpv udp://239.0.0.1:1234
+ffplay udp://239.0.0.1:1234
+
+```
 
 
 
