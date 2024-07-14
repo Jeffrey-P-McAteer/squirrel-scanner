@@ -10,9 +10,10 @@ def main(args=sys.argv):
   external_disk_part = '/dev/disk/by-partuuid/2db8d4c9-b33a-4a7e-a0bb-50ab127aedbc'
   external_disk_directory = '/mnt'
   external_disk_canary_file = '/mnt/ext-1tb-hdd.txt'
+
   if os.path.exists(external_disk_part) and not os.path.exists(external_disk_canary_file):
     subprocess.run([
-      'sudo', 'mount', external_disk_part, external_disk_directory
+      'sudo', 'mount', '-o', f'gid={os.getgid()},uid={os.getuid()}', external_disk_part, external_disk_directory
     ], check=True)
 
 
