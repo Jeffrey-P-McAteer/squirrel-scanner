@@ -8,4 +8,15 @@ edition = "2021"
 tokio = { version = "1", features = ["full"] }
 
 
+[dependencies.v4l]
+version = "0.14"
+# libv4l (old) and v4l2 (new) are mutually exclusive! TODO see which one our camera talks best to.
+# features = [ "libv4l" ]
+# default-features = false
+
+
+[profile.release]
+lto = "fat"
+codegen-units = 1
+panic = "abort"
 
