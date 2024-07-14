@@ -13,7 +13,7 @@ def main(args=sys.argv):
 
   if os.path.exists(external_disk_part) and not os.path.exists(external_disk_canary_file):
     subprocess.run([
-      'sudo', 'mount', '-o', f'gid={os.getgid()},uid={os.getuid()}', external_disk_part, external_disk_directory
+      'sudo', 'mount', external_disk_part, external_disk_directory
     ], check=True)
 
 
