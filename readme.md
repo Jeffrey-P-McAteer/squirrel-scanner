@@ -19,7 +19,7 @@
     - `sudo pacman -S iwd`
     - Set `AutoConnect=true` in `/etc/iwd/main.conf` (https://unix.stackexchange.com/a/623037)
  - Install development tools
-    - `sudo pacman -S base-devel git vim rustup python python-pip sudo less tar findutils`
+    - `sudo pacman -S base-devel git vim rustup python python-pip sudo less tar findutils clang`
  - Install remote infrastructure
     - `sudo pacman -S openssh && sudo systemctl enable --now sshd`
 
