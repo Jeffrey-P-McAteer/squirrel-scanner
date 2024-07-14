@@ -28,7 +28,7 @@
     - `sudo systemctl enable --now systemd-resolved.service`
     - https://unix.stackexchange.com/a/52645
     - `sudo pacman -S v4l-utils`
-
+    - `sudo pacman -S ffmpeg`
 
 # Software Pipeline Setup
 
