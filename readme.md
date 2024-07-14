@@ -29,6 +29,7 @@
     - https://unix.stackexchange.com/a/52645
     - `sudo pacman -S v4l-utils`
     - `sudo pacman -S ffmpeg`
+    - `sudo pacman -S opendesktop-fonts noto-fonts gnu-free-fonts adobe-source-code-pro-fonts xorg-fonts-100dpi xorg-fonts-75dpi xorg-fonts-alias-100dpi xorg-fonts-alias-75dpi`
 
 # Software Pipeline Setup
 
@@ -52,7 +53,12 @@ sudo ffmpeg -i /dev/video2 -c:v libx264 -preset ultrafast -qp 0 -f mpegts  'udp:
 # same thing, with filters like these: https://stackoverflow.com/a/9570992
 sudo ffmpeg -i /dev/video2 -vf "transpose=1" -c:v libx264 -preset ultrafast -qp 0 -f mpegts  'udp://239.0.0.1:1234?ttl=13'
 # Spawn the above as a small daemon
-sudo systemd-run --uid=0 --gid=0 --nice=-1 --working-directory=/tmp -- sudo ffmpeg -i /dev/video2 -vf "transpose=1" -c:v libx264 -preset ultrafast -qp 0 -f mpegts  'udp://239.0.0.1:1234?ttl=13'
+sudo systemd-run --uid=0 --gid=0 --nice=-1 --working-directory=/tmp -- \
+  sudo ffmpeg \
+    -i /dev/video2 \
+    -vf "transpose=1" \
+    -vf drawtext=fontfile=/usr/share/fonts/noto/NotoSansMono-Regular.ttf:text='%{localtime}':fontcolor=white@0.8:x=7:y=7 \
+    -c:v libx264 -preset ultrafast -qp 0 -f mpegts  'udp://239.0.0.1:1234?ttl=13'
 
 # Play back w/ VLC / MPV
 mpv udp://239.0.0.1:1234
