@@ -1,5 +1,6 @@
 
 mod utils;
+mod web;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
   if let Err(e) = os_prelude() {
@@ -10,6 +11,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     .worker_threads(4)
     .thread_stack_size(8 * 1024 * 1024)
     .enable_time()
+    .enable_io()
     .build()?;
 
   rt.block_on(async {
@@ -47,6 +49,12 @@ fn os_epilogue() -> Result<(), Box<dyn std::error::Error>>  {
 
 #[allow(unreachable_code)]
 async fn main_async() -> Result<(), Box<dyn std::error::Error>> {
+
+  tokio::task::spawn(async {
+    if let Err(e) = web::run_webserver_forever().await {
+      eprintln!("[ run_webserver_forever ] {:?}", e);
+    }
+  });
 
   loop {
     if utils::is_proc_running("ffmpeg").await {
