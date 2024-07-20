@@ -321,6 +321,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "atomic_float"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3c4b08ed8a30ff7320117c190eb4d73d47f0ac0c930ab853b8224cef7cd9a5e7"
+
+[[package]]
 name = "autocfg"
 version = "1.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2087,6 +2093,7 @@ version = "0.1.0"
 dependencies = [
  "ab_glyph",
  "actix-web",
+ "atomic_float",
  "chrono",
  "image",
  "imageproc",

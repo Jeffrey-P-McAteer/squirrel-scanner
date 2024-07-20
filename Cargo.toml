@@ -14,7 +14,7 @@ rayon = "1.10"
 imageproc = "0.25"
 ab_glyph = "0.2"
 chrono = "0.4"
-
+atomic_float = "1.0"
 
 [dependencies.v4l]
 version = "0.14"
