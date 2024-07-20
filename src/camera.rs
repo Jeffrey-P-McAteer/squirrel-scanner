@@ -83,7 +83,8 @@ pub async fn camera_loop() -> Result<(), Box<dyn std::error::Error>> {
     // At some point it may make sense to move this to another task
     // polling a queue, but for now this is nice and simple.
     {
-      crate::utils::yuv422_to_rgb24(&frame_yuyv422_buf, &mut rgb_pixels_buff[..]);
+
+      crate::utils::yuv422_interleaved_to_rgb24(&frame_yuyv422_buf, &mut rgb_pixels_buff[..]);
 
 
       let cam_fmt_w = cam_fmt_w as u32;

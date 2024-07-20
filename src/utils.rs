@@ -62,74 +62,85 @@ use rayon::prelude::*;
 
 /// Copies an input buffer of format YUYV422 to the output buffer
 /// in the format of RGB24
+// Interleaved: In case of YUV422 interleaved data, it looks as below:
+//   Y1U1Y2V1 Y3U2Y4V2 ... ...
 #[inline]
-pub fn yuv422_to_rgb24(in_buf: &[u8], out_buf: &mut [u8]) {
-    debug_assert!(out_buf.len() as f32 == in_buf.len() as f32 * 1.5);
+pub fn yuv422_interleaved_to_rgb24(in_buf: &[u8], out_buf: &mut [u8]) {
+  debug_assert!(out_buf.len() as f32 == in_buf.len() as f32 * 1.5);
 
-    in_buf
-        .par_chunks_exact(4) // FIXME: use par_array_chunks() when stabalized (https://github.com/rayon-rs/rayon/pull/789)
-        .zip(out_buf.par_chunks_exact_mut(6))
-        .for_each(|(ch, out)| {
-            let y1 = ch[0];
-            let y2 = ch[2];
-            let cb = ch[1];
-            let cr = ch[3];
+  in_buf
+    .par_chunks_exact(4) // FIXME: use par_array_chunks() when stabalized (https://github.com/rayon-rs/rayon/pull/789)
+    .zip(out_buf.par_chunks_exact_mut(6))
+    .for_each(|(ch, out)| {
+        let y1 = ch[0];
+        let y2 = ch[2];
+        let cb = ch[1];
+        let cr = ch[3];
 
-            let (r, g, b) = ycbcr_to_rgb(y1, cb, cr);
+        let (r, g, b) = ycbcr_to_rgb(y1, cb, cr);
 
-            out[0] = r;
-            out[1] = g;
-            out[2] = b;
+        out[0] = r;
+        out[1] = g;
+        out[2] = b;
 
-            let (r, g, b) = ycbcr_to_rgb(y2, cb, cr);
+        let (r, g, b) = ycbcr_to_rgb(y2, cb, cr);
 
-            out[3] = r;
-            out[4] = g;
-            out[5] = b;
-        });
+        out[3] = r;
+        out[4] = g;
+        out[5] = b;
+    });
 }
 
+
+// Planar: In memory, Y followed by Cb and followed by Cr
+//   [Y1Y2......][Cb1Cb2......][Cr1Cr2.......]
 #[inline]
-pub fn yuv422_to_rgb32(in_buf: &[u8], out_buf: &mut [u8]) {
-    debug_assert!(out_buf.len() == in_buf.len() * 2);
+pub fn yuv422_planar_to_rgb24(in_buf: &[u8], out_buf: &mut [u8]) {
+  debug_assert!(out_buf.len() as f32 == in_buf.len() as f32 * 1.5);
 
-    in_buf
-        .par_chunks_exact(4) // FIXME: use par_array_chunks() when stabalized (https://github.com/rayon-rs/rayon/pull/789)
-        .zip(out_buf.par_chunks_exact_mut(8))
-        .for_each(|(ch, out)| {
-            let y1 = ch[0];
-            let y2 = ch[2];
-            let cb = ch[1];
-            let cr = ch[3];
+  let y1y2_chunk_width = in_buf.len() / 2;
+  let c_chunk_width = y1y2_chunk_width / 2;
 
-            let (r, g, b) = ycbcr_to_rgb(y1, cb, cr);
+  let cb_begin_idx = y1y2_chunk_width;
+  let cr_begin_idx = y1y2_chunk_width + c_chunk_width;
 
-            out[0] = b;
-            out[1] = g;
-            out[2] = r;
-            // out[3] = 0;
+  in_buf
+    .par_chunks_exact(2) // iterate the 2 brightness components
+    .zip(0..c_chunk_width) // add a component index offset so we can calculate an offset into in_buf
+    .zip(out_buf.par_chunks_exact_mut(6))
+    .for_each(|((ch, c_idx), out)| {
+        let y1 = ch[0];
+        let y2 = ch[1];
+        let cb = in_buf[cb_begin_idx + c_idx];
+        let cr = in_buf[cr_begin_idx + c_idx];
 
-            let (r, g, b) = ycbcr_to_rgb(y2, cb, cr);
+        let (r, g, b) = ycbcr_to_rgb(y1, cb, cr);
 
-            out[4] = b;
-            out[5] = g;
-            out[6] = r;
-            // out[7] = 0;
-        });
+        out[0] = r;
+        out[1] = g;
+        out[2] = b;
+
+        let (r, g, b) = ycbcr_to_rgb(y2, cb, cr);
+
+        out[3] = r;
+        out[4] = g;
+        out[5] = b;
+    });
 }
+
 
 // COLOR CONVERSION: https://stackoverflow.com/questions/28079010/rgb-to-ycbcr-using-simd-vectors-lose-some-data
 
 #[inline]
 fn ycbcr_to_rgb(y: u8, cb: u8, cr: u8) -> (u8, u8, u8) {
-    let ycbcr = f32x4::from_array([y as f32, cb as f32 - 128.0f32, cr as f32 - 128.0f32, 0.0]);
+  let ycbcr = f32x4::from_array([y as f32, cb as f32 - 128.0f32, cr as f32 - 128.0f32, 0.0]);
 
-    // rec 709: https://mymusing.co/bt-709-yuv-to-rgb-conversion-color/
-    let r = (ycbcr * f32x4::from_array([1.0, 0.00000, 1.5748, 0.0])).reduce_sum();
-    let g = (ycbcr * f32x4::from_array([1.0, -0.187324, -0.468124, 0.0])).reduce_sum();
-    let b = (ycbcr * f32x4::from_array([1.0, 1.8556, 0.00000, 0.0])).reduce_sum();
+  // rec 709: https://mymusing.co/bt-709-yuv-to-rgb-conversion-color/
+  let r = (ycbcr * f32x4::from_array([1.0, 0.00000, 1.5748, 0.0])).reduce_sum();
+  let g = (ycbcr * f32x4::from_array([1.0, -0.187324, -0.468124, 0.0])).reduce_sum();
+  let b = (ycbcr * f32x4::from_array([1.0, 1.8556, 0.00000, 0.0])).reduce_sum();
 
-    (clamp(r), clamp(g), clamp(b))
+  (clamp(r), clamp(g), clamp(b))
 }
 
 // fn rgb_to_ycbcr((r, g, b): (u8, u8, u8)) -> (u8, u8, u8) {
@@ -143,13 +154,13 @@ fn ycbcr_to_rgb(y: u8, cb: u8, cr: u8) -> (u8, u8, u8) {
 
 #[inline]
 fn clamp(val: f32) -> u8 {
-    if val < 0.0 {
-        0
-    } else if val > 255.0 {
-        255
-    } else {
-        val.round() as u8
-    }
+  if val < 0.0 {
+      0
+  } else if val > 255.0 {
+      255
+  } else {
+      val.round() as u8
+  }
 }
 
 
