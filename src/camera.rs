@@ -62,7 +62,7 @@ pub async fn camera_loop() -> Result<(), Box<dyn std::error::Error>> {
 
   let mut last_n_frame_times: [std::time::SystemTime; 8] = [std::time::SystemTime::now(); 8];
   // vv re-calculated off last_n_frame_times at regular intervals
-  let mut rolling_fps_val: f32;
+  let mut rolling_fps_val: f32 = 0.0;
 
   let mut rgb_pixels_buff: Vec<u8> = vec![0u8; cam_fmt_w * cam_fmt_h * 3];
 
@@ -103,7 +103,7 @@ pub async fn camera_loop() -> Result<(), Box<dyn std::error::Error>> {
       }
 
       let now = chrono::Local::now();
-      let ts_text = format!("{}", now.format("%H:%M:%S"));
+      let ts_text = format!("{} FPS={:.1}", now.format("%H:%M:%S"), rolling_fps_val);
       imageproc::drawing::draw_text_mut(
         &mut imgbuf,
         image::Rgb([255, 255, 255]),
