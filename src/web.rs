@@ -55,7 +55,7 @@ async fn frame() -> actix_web::HttpResponse {
   if let Ok(png_bytes) = tokio::fs::read("/tmp/img.png").await {
     actix_web::HttpResponse::Ok()
       .content_type(actix_web::http::header::ContentType(mime::IMAGE_PNG))
-      //.insert_header(("X-Hdr", "sample"))
+      .insert_header(("Refresh", "1")) // Hint to browsers to refresh page after 1 second
       .body(png_bytes)
   }
   else {
