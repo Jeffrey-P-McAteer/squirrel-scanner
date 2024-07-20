@@ -57,7 +57,7 @@ pub async fn camera_loop() -> Result<(), Box<dyn std::error::Error>> {
 
   // Create the stream, which will internally 'allocate' (as in map) the
   // number of requested buffers for us.
-  let mut stream = v4l::io::mmap::Stream::with_buffers(&mut dev, v4l::buffer::Type::VideoCapture, 2)?;
+  let mut stream = v4l::io::mmap::Stream::with_buffers(&mut dev, v4l::buffer::Type::VideoCapture, 4)?;
 
   let mut last_n_frame_times: [std::time::SystemTime; 8] = [std::time::SystemTime::now(); 8];
   // vv re-calculated off last_n_frame_times at regular intervals

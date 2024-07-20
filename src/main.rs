@@ -1,6 +1,7 @@
 
 // Guess who doesn't care right now?
 #![allow(unused_variables)]
+#![allow(dead_code)]
 
 // We use this in utils
 #![feature(portable_simd)]
