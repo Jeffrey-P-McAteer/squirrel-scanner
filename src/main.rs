@@ -88,6 +88,11 @@ async fn main_async() -> Result<(), Box<dyn std::error::Error>> {
 
     if let Err(e) = camera::camera_loop().await {
       eprintln!("[ camera_loop ] {:?}", e);
+      let e_s = format!("{:?}", e);
+      if e_s.contains("Interrupted") && e_s.contains("system") && e_s.contains("call") {
+        // We see this on ctrl+c SIGTERM events, so play nice & decide to exit.
+        crate::PLEASE_EXIT_FLAG.store(true, std::sync::atomic::Ordering::SeqCst);
+      }
     }
 
     tokio::time::sleep(tokio::time::Duration::from_millis(250)).await;
