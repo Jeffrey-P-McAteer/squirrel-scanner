@@ -92,6 +92,7 @@ sudo ffmpeg \
 
 # Local box tests
 cargo build --release && NO_PRELUDE=t VDEV=/dev/video0 ./target/release/squirrel-scanner
+cargo build --release && RUST_BACKTRACE=1 NO_PRELUDE=t VDEV=/dev/video0 gdbbin ./target/release/squirrel-scanner
 
 
 ```

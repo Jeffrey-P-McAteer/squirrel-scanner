@@ -52,11 +52,16 @@ pub async fn run_webserver_once() -> Result<(), Box<dyn std::error::Error>> {
 
 #[actix_web::get("/frame")]
 async fn frame() -> actix_web::HttpResponse {
-  let png_bytes_len = crate::camera::LAST_FRAME_PNG_BYTES_WRITTEN.load(std::sync::atomic::Ordering::SeqCst);
-  actix_web::HttpResponse::Ok()
-    .content_type(actix_web::http::header::ContentType(mime::IMAGE_PNG))
-    //.insert_header(("X-Hdr", "sample"))
-    .body(&crate::camera::LAST_FRAME_PNG[..png_bytes_len])
+  if let Ok(png_bytes) = tokio::fs::read("/tmp/img.png").await {
+    actix_web::HttpResponse::Ok()
+      .content_type(actix_web::http::header::ContentType(mime::IMAGE_PNG))
+      //.insert_header(("X-Hdr", "sample"))
+      .body(png_bytes)
+  }
+  else {
+    actix_web::HttpResponse::InternalServerError()
+      .into()
+  }
 }
 
 

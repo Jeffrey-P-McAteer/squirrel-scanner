@@ -1,6 +1,12 @@
 
-pub static LAST_FRAME_PNG: [u8; 1280 * 720 * 3] = [0u8; 1280 * 720 * 3];
-pub static LAST_FRAME_PNG_BYTES_WRITTEN: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+//pub static LAST_FRAME_PNG: [u8; 1280 * 720 * 3] = [0u8; 1280 * 720 * 3];
+//pub static LAST_FRAME_PNG: &'static mut [u8] = &mut [0u8; 1280 * 720 * 3];
+//pub static LAST_FRAME_PNG_BYTES_WRITTEN: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+
+lazy_static::lazy_static! {
+    pub static ref LAST_FRAME_PNG: Vec<u8> = vec![];
+}
+
 
 #[allow(unreachable_code)]
 pub async fn camera_loop() -> Result<(), Box<dyn std::error::Error>> {
@@ -121,23 +127,30 @@ pub async fn camera_loop() -> Result<(), Box<dyn std::error::Error>> {
         eprintln!("bc_buff.bytes_written() = {:?}", bytes_written);
       }*/
 
-      let mut byte_cursor = std::io::Cursor::new(LAST_FRAME_PNG);
-      byte_cursor.set_position(0);
-      let mut png_encoder = image::codecs::png::PngEncoder::new(&mut byte_cursor);
-      if let Err(e) = imgbuf.write_with_encoder(png_encoder) {
-        eprintln!("[ imgbuf.write_to ] {:?}", e);
-      }
+      //let byte_ref: &mut [u8] = unsafe { std::slice::from_raw_parts_mut(&LAST_FRAME_PNG as *const u8 as *mut u8, LAST_FRAME_PNG.len()) };
+      //let byte_ref: &mut [u8] = unsafe { &mut *(&mut LAST_FRAME_PNG as *mut [u8]) };
+      //let mut byte_cursor = std::io::Cursor::new(byte_ref);
+      //byte_cursor.set_position(0);
+      // let mut png_encoder = image::codecs::png::PngEncoder::new(&mut LAST_FRAME_PNG[..] );
+      // if let Err(e) = imgbuf.write_with_encoder(png_encoder) {
+      //   eprintln!("[ imgbuf.write_with_encoder ] {:?}", e);
+      // }
 
+      /*
       let bytes_written = byte_cursor.position();
       if loop_i % 6 == 0 {
         eprintln!("bc_buff.bytes_written() = {:?}", bytes_written);
       }
-
-
       LAST_FRAME_PNG_BYTES_WRITTEN.store(bytes_written as usize, std::sync::atomic::Ordering::SeqCst);
+      */
 
-      std::fs::write("/tmp/img.png", &LAST_FRAME_PNG[0..bytes_written as usize]).expect("Unable to write file");
+      // if let Err(e) = imgbuf.write_to(&mut LAST_FRAME_PNG, image::ImageFormat::Png) {
+      //   eprintln!("[ imgbuf.write_to ] {:?}", e);
+      // }
 
+      if let Err(e) = imgbuf.save("/tmp/img.png") {
+        eprintln!("[ imgbuf.save ] {:?}", e);
+      }
 
     }
 

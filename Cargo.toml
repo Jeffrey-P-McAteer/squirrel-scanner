@@ -9,6 +9,7 @@ tokio = { version = "1", features = ["full"] }
 procfs = "0.15"
 image = "0.25"
 mime = "0.3"
+lazy_static = "1.5"
 
 num-complex = "0.4" # temp testing
 
