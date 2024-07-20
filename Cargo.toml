@@ -9,8 +9,9 @@ tokio = { version = "1", features = ["full"] }
 procfs = "0.15"
 image = "0.25"
 mime = "0.3"
-lazy_static = "1.5"
+# lazy_static = "1.5"
 rayon = "1.10"
+# image2 = "1.9"
 
 
 [dependencies.v4l]

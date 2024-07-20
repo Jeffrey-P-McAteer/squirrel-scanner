@@ -3,9 +3,9 @@
 //pub static LAST_FRAME_PNG: &'static mut [u8] = &mut [0u8; 1280 * 720 * 3];
 //pub static LAST_FRAME_PNG_BYTES_WRITTEN: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
 
-lazy_static::lazy_static! {
-    pub static ref LAST_FRAME_PNG: Vec<u8> = vec![];
-}
+// lazy_static::lazy_static! {
+//     pub static ref LAST_FRAME_PNG: Vec<u8> = vec![];
+// }
 
 
 #[allow(unreachable_code)]
@@ -86,7 +86,6 @@ pub async fn camera_loop() -> Result<(), Box<dyn std::error::Error>> {
 
       crate::utils::yuv422_interleaved_to_rgb24(&frame_yuyv422_buf, &mut rgb_pixels_buff[..]);
 
-
       let cam_fmt_w = cam_fmt_w as u32;
       let cam_fmt_h = cam_fmt_h as u32;
 
@@ -102,10 +101,17 @@ pub async fn camera_loop() -> Result<(), Box<dyn std::error::Error>> {
         ]);
       }
 
-
       if let Err(e) = imgbuf.save("/tmp/img.png") {
         eprintln!("[ imgbuf.save ] {:?}", e);
       }
+
+      // aaaand we may as well bump saturation using an image-processing library.
+      // This drops FPS from around 12/s to 0.8/s -_-
+      // let image = image2::Image::<f32, image2::Rgb>::open("/tmp/img.png")?;
+      // let filder = image2::filter::saturation(0.4);
+      // let image: image2::Image::<f32, image2::Rgb> = image.run(filder, None);
+
+      // image.save("/tmp/img.png")?;
 
     }
 
