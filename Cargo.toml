@@ -11,7 +11,9 @@ image = "0.25"
 mime = "0.3"
 # lazy_static = "1.5"
 rayon = "1.10"
-# image2 = "1.9"
+imageproc = "0.25"
+ab_glyph = "0.2"
+chrono = "0.4"
 
 
 [dependencies.v4l]

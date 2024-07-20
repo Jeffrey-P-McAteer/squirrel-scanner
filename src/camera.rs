@@ -13,6 +13,7 @@ pub async fn camera_loop() -> Result<(), Box<dyn std::error::Error>> {
   use v4l::video::Capture;
   use v4l::io::traits::CaptureStream;
 
+  let font = ab_glyph::FontRef::try_from_slice(include_bytes!("/usr/share/fonts/noto/NotoSansMono-Regular.ttf"))?;
 
   let mut video_device_path = "/dev/video2".to_string();
   if let Ok(val) = std::env::var("VDEV") {
@@ -100,6 +101,16 @@ pub async fn camera_loop() -> Result<(), Box<dyn std::error::Error>> {
           rgb_pixels_buff[rgb_buff_offset + 2]
         ]);
       }
+
+      let now = chrono::Local::now();
+      let ts_text = format!("{}", now.format("%H:%M:%S"));
+      imageproc::drawing::draw_text_mut(
+        &mut imgbuf,
+        image::Rgb([255, 255, 255]),
+        4, 4, ab_glyph::PxScale::from(18.0),
+        &font,
+        &ts_text[..]
+      );
 
       if let Err(e) = imgbuf.save("/tmp/img.png") {
         eprintln!("[ imgbuf.save ] {:?}", e);
