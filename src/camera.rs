@@ -25,15 +25,16 @@ pub async fn camera_loop() -> Result<(), Box<dyn std::error::Error>> {
 
   // Let's say we want to explicitly request another format
   let mut fmt = dev.format()?;
-  // fmt.width = 1920;
-  // fmt.height = 1080;
 
-  fmt.width = 1280;
-  fmt.height = 720;
-
-  fmt.fourcc = v4l::FourCC::new(b"YUYV"); // https://stackoverflow.com/a/47736923
-  // The camera we're using advertises the following color layout
-  //   Raw       :     yuyv422 :           YUYV 4:2:2
+  for (wanted_w, wanted_h) in &[(1920, 1080), (1280, 720)] {
+    fmt.fourcc = v4l::FourCC::new(b"YUYV");
+    fmt.width = *wanted_w;
+    fmt.height = *wanted_h;
+    let assigned_fmt = dev.set_format(&fmt)?;
+    if assigned_fmt.width == *wanted_w && assigned_fmt.height == *wanted_h {
+      break;
+    }
+  }
 
   let assigned_fmt = dev.set_format(&fmt)?;
 
