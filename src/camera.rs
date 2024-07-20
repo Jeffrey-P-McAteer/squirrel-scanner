@@ -13,6 +13,17 @@ pub async fn camera_loop() -> Result<(), Box<dyn std::error::Error>> {
   use v4l::video::Capture;
   use v4l::io::traits::CaptureStream;
 
+  use ffimage::color::Rgb;
+  use ffimage::iter::PixelsExt;
+  use ffimage::iter::ColorConvertExt;
+  use ffimage::iter::BytesExt;
+  use ffimage_yuv::{
+      yuv::Yuv,
+      yuv422::{Yuv422, Yuyv},
+  };
+
+
+
   let mut video_device_path = "/dev/video2".to_string();
   if let Ok(val) = std::env::var("VDEV") {
     video_device_path = val.to_string();
@@ -80,73 +91,37 @@ pub async fn camera_loop() -> Result<(), Box<dyn std::error::Error>> {
     // At some point it may make sense to move this to another task
     // polling a queue, but for now this is nice and simple.
     {
+
+      //let view = Image::<Yuv<u8>, _>::from_buf(&frame_yuyv422_buf, cam_fmt_w, cam_fmt_h)?;
+      //let mut rgb_buf = Image::<Rgb<u8>, _>::new(cam_fmt_w, cam_fmt_h, 0u8);
+      //view.convert(&mut rgb_buf);
+
+      let mut rgb_pixels_buff: [u8; 1280 * 720 * 3] = [0u8; 1280 * 720 * 3];
+
+      // YUV-to-RGB magic
+      frame_yuyv422_buf.iter()
+        .copied()
+        .pixels::<Yuv<u8>>()
+        .colorconvert::<Rgb<u8>>()
+        .bytes()
+        .write(&mut rgb_pixels_buff);
+
+
       let cam_fmt_w = cam_fmt_w as u32;
       let cam_fmt_h = cam_fmt_h as u32;
 
       let mut imgbuf = image::ImageBuffer::new(cam_fmt_w, cam_fmt_h);
 
-      let scalex = 3.0 / cam_fmt_w as f32;
-      let scaley = 3.0 / cam_fmt_h as f32;
-
       // Iterate over the coordinates and pixels of the image
       for (x, y, pixel) in imgbuf.enumerate_pixels_mut() {
-          let r = (0.3 * x as f32) as u8;
-          let b = (0.3 * y as f32) as u8;
-          *pixel = image::Rgb([r, 0, b]);
+        let rgb_buff_offset = ((y * cam_fmt_w) + x) as usize;
+        *pixel = image::Rgb([
+          rgb_pixels_buff[rgb_buff_offset + 0],
+          rgb_pixels_buff[rgb_buff_offset + 1],
+          rgb_pixels_buff[rgb_buff_offset + 2]
+        ]);
       }
 
-      // A redundant loop to demonstrate reading image data
-      for x in 0..cam_fmt_w {
-          for y in 0..cam_fmt_h {
-              let cx = y as f32 * scalex - 1.5;
-              let cy = x as f32 * scaley - 1.5;
-
-              let c = num_complex::Complex::new(-0.4, 0.6);
-              let mut z = num_complex::Complex::new(cx, cy);
-
-              let mut i = 0;
-              while i < 255 && z.norm() <= 2.0 {
-                  z = z * z + c;
-                  i += 1;
-              }
-
-              let pixel = imgbuf.get_pixel_mut(x, y);
-              let image::Rgb(data) = *pixel;
-              *pixel = image::Rgb([data[0], i as u8, data[2]]);
-          }
-      }
-
-      /*
-      let mut byte_cursor = std::io::Cursor::new(LAST_FRAME_PNG);
-      if let Err(e) = imgbuf.write_to(&mut byte_cursor, image::ImageFormat::Png) {
-        eprintln!("[ imgbuf.write_to ] {:?}", e);
-      }
-
-      let bytes_written = byte_cursor.position();
-      if loop_i % 6 == 0 {
-        eprintln!("bc_buff.bytes_written() = {:?}", bytes_written);
-      }*/
-
-      //let byte_ref: &mut [u8] = unsafe { std::slice::from_raw_parts_mut(&LAST_FRAME_PNG as *const u8 as *mut u8, LAST_FRAME_PNG.len()) };
-      //let byte_ref: &mut [u8] = unsafe { &mut *(&mut LAST_FRAME_PNG as *mut [u8]) };
-      //let mut byte_cursor = std::io::Cursor::new(byte_ref);
-      //byte_cursor.set_position(0);
-      // let mut png_encoder = image::codecs::png::PngEncoder::new(&mut LAST_FRAME_PNG[..] );
-      // if let Err(e) = imgbuf.write_with_encoder(png_encoder) {
-      //   eprintln!("[ imgbuf.write_with_encoder ] {:?}", e);
-      // }
-
-      /*
-      let bytes_written = byte_cursor.position();
-      if loop_i % 6 == 0 {
-        eprintln!("bc_buff.bytes_written() = {:?}", bytes_written);
-      }
-      LAST_FRAME_PNG_BYTES_WRITTEN.store(bytes_written as usize, std::sync::atomic::Ordering::SeqCst);
-      */
-
-      // if let Err(e) = imgbuf.write_to(&mut LAST_FRAME_PNG, image::ImageFormat::Png) {
-      //   eprintln!("[ imgbuf.write_to ] {:?}", e);
-      // }
 
       if let Err(e) = imgbuf.save("/tmp/img.png") {
         eprintln!("[ imgbuf.save ] {:?}", e);
