@@ -1,12 +1,14 @@
 
 static CAMERA_ROLLING_FPS: atomic_float::AtomicF32 = atomic_float::AtomicF32::new(0.0);
+lazy_static::lazy_static! {
+  pub static ref CAMERA_LAST_FRAME_JPEG: std::sync::RwLock<Vec<u8>> = std::sync::RwLock::new(vec![]);
+  pub static ref CAMERA_LAST_FRAME_IMGBUF: std::sync::RwLock<image::ImageBuffer<image::Rgb<u8>, Vec<u8>>> = std::sync::RwLock::new(image::ImageBuffer::new(1, 1));
+}
 
 #[allow(unreachable_code)]
 pub async fn camera_loop() -> Result<(), Box<dyn std::error::Error>> {
   use v4l::video::Capture;
   use v4l::io::traits::CaptureStream;
-
-  //let font = ab_glyph::FontRef::try_from_slice(include_bytes!("/usr/share/fonts/noto/NotoSansMono-Regular.ttf"))?;
 
   let mut video_device_path = "/dev/video2".to_string();
   if let Ok(val) = std::env::var("VDEV") {
@@ -44,7 +46,7 @@ pub async fn camera_loop() -> Result<(), Box<dyn std::error::Error>> {
   println!("Camera img_bpp = {:?}", img_bpp);
   println!("Camera cam_fmt_w,cam_fmt_h = {:?},{:?}", cam_fmt_w,cam_fmt_h);
 
-  let (frame_tx, mut frame_rx) = tokio::sync::mpsc::channel::<Vec<u8>>(16);
+  let (frame_tx, frame_rx) = tokio::sync::mpsc::channel::<Vec<u8>>(16);
 
   let task_cam_fmt_w = cam_fmt_w;
   let task_cam_fmt_h = cam_fmt_h;
@@ -61,10 +63,6 @@ pub async fn camera_loop() -> Result<(), Box<dyn std::error::Error>> {
   let mut stream = v4l::io::mmap::Stream::with_buffers(&mut dev, v4l::buffer::Type::VideoCapture, 4)?;
 
   let mut last_n_frame_times: [std::time::SystemTime; 8] = [std::time::SystemTime::now(); 8];
-  // vv re-calculated off last_n_frame_times at regular intervals
-  // let mut rolling_fps_val: f32 = 0.0;
-
-  //let mut rgb_pixels_buff: Vec<u8> = vec![0u8; cam_fmt_w * cam_fmt_h * 3];
 
   let mut loop_i = 0;
   loop {
@@ -84,45 +82,6 @@ pub async fn camera_loop() -> Result<(), Box<dyn std::error::Error>> {
     if let Err(e) = frame_tx.send( frame_yuyv422_buf.to_vec() ).await {
       eprintln!("[ frame_tx.send ] {:?}", e);
     }
-
-    /*
-    // For now we're going to go ahead and do image processing inline.
-    // At some point it may make sense to move this to another task
-    // polling a queue, but for now this is nice and simple.
-    {
-      crate::utils::yuv422_interleaved_to_rgb24(&frame_yuyv422_buf, &mut rgb_pixels_buff[..]);
-
-      let cam_fmt_w = cam_fmt_w as u32;
-      let cam_fmt_h = cam_fmt_h as u32;
-
-      let mut imgbuf = image::ImageBuffer::new(cam_fmt_w, cam_fmt_h);
-
-      // Iterate over the coordinates and pixels of the image
-      for (x, y, pixel) in imgbuf.enumerate_pixels_mut() {
-        let rgb_buff_offset = ((y * cam_fmt_w * 3) + (x * 3) ) as usize;
-        *pixel = image::Rgb([
-          rgb_pixels_buff[rgb_buff_offset + 0],
-          rgb_pixels_buff[rgb_buff_offset + 1],
-          rgb_pixels_buff[rgb_buff_offset + 2]
-        ]);
-      }
-
-      let now = chrono::Local::now();
-      let ts_text = format!("{} FPS={:.1}", now.format("%H:%M:%S"), rolling_fps_val);
-      imageproc::drawing::draw_text_mut(
-        &mut imgbuf,
-        image::Rgb([255, 255, 255]),
-        4, 4, ab_glyph::PxScale::from(18.0),
-        &font,
-        &ts_text[..]
-      );
-
-      if let Err(e) = imgbuf.save("/tmp/img.jpg") {
-        eprintln!("[ imgbuf.save ] {:?}", e);
-      }
-
-    }
-  */
 
     // Exit if requested by another component
     if crate::PLEASE_EXIT_FLAG.load(std::sync::atomic::Ordering::Relaxed) {
@@ -187,9 +146,19 @@ pub async fn run_frame_processor(cam_fmt_w: usize, cam_fmt_h: usize, mut frame_r
         &ts_text[..]
       );
 
-      if let Err(e) = imgbuf.save("/tmp/img.jpg") {
-        eprintln!("[ imgbuf.save ] {:?}", e);
+      if let Ok(mut camera_last_frame_jpeg) = CAMERA_LAST_FRAME_JPEG.write() {
+        let mut seekable_buf: std::io::Cursor<Vec<u8>> = std::io::Cursor::new( Vec::new() );
+        if let Err(e) = imgbuf.write_to(&mut seekable_buf, image::ImageFormat::Jpeg) {
+          eprintln!("[ imgbuf.write_to ] {:?}", e);
+        }
+        *camera_last_frame_jpeg = seekable_buf.into_inner();
       }
+
+
+      if let Ok(mut camera_last_frame_imgbuf) = CAMERA_LAST_FRAME_IMGBUF.write() {
+        *camera_last_frame_imgbuf = imgbuf;
+      }
+
     }
 
     // Exit if requested by another component

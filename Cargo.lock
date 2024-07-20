@@ -2097,6 +2097,7 @@ dependencies = [
  "chrono",
  "image",
  "imageproc",
+ "lazy_static",
  "mime",
  "procfs",
  "rayon",

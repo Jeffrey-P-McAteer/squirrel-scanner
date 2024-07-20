@@ -18,7 +18,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
   }
 
   let rt  = tokio::runtime::Builder::new_multi_thread()
-    .worker_threads(4)
+    .worker_threads(6)
     .thread_stack_size(8 * 1024 * 1024)
     .enable_time()
     .enable_io()
