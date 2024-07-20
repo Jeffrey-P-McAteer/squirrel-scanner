@@ -23,7 +23,7 @@ def main(args=sys.argv):
     ], check=True)
 
     subprocess.run([
-      'systemctl', 'restart', 'squirrel-scanner.service',
+      'sudo', '-i', 'systemctl', 'restart', 'squirrel-scanner.service',
     ], check=True)
 
 
