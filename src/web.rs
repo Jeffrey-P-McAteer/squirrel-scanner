@@ -24,7 +24,8 @@ pub async fn run_webserver_once() -> Result<(), Box<dyn std::error::Error>> {
 
   actix_web::HttpServer::new(|| {
       actix_web::App::new()
-        .service(greet)
+        .service(frame)
+        .service(shutdown)
   })
   .bind(("::", port))
   .expect("cannot bind to port")
@@ -35,9 +36,22 @@ pub async fn run_webserver_once() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 
-#[actix_web::get("/hello/{name}")]
-async fn greet(name: actix_web::web::Path<String>) -> impl actix_web::Responder {
-    format!("Hello {}!", name)
+#[actix_web::get("/frame")]
+async fn frame() -> impl actix_web::Responder {
+    format!("Hello !")
+}
+
+
+#[actix_web::get("/shutdown")]
+async fn shutdown() -> impl actix_web::Responder {
+  crate::PLEASE_EXIT_FLAG.store(true, std::sync::atomic::Ordering::SeqCst);
+
+  tokio::task::spawn(async { // Allow /shutdown to serve a last response, then shutdown the webserver task.
+    tokio::time::sleep(tokio::time::Duration::from_millis(350)).await;
+    actix_web::rt::System::current().stop();
+  });
+
+  "Shutting Down..."
 }
 
 
