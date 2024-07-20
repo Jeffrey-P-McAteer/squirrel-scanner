@@ -20,6 +20,8 @@
     - Set `AutoConnect=true` in `/etc/iwd/main.conf` (https://unix.stackexchange.com/a/623037)
  - Install development tools
     - `sudo pacman -S base-devel git vim rustup python python-pip sudo less tar findutils clang`
+    - 'rustup update'
+    - 'rustup update -- nightly'
  - Install remote infrastructure
     - `sudo pacman -S openssh && sudo systemctl enable --now sshd`
     - `sudo pacman -S cpupower`
@@ -94,6 +96,7 @@ sudo ffmpeg \
 cargo build --release && NO_PRELUDE=t VDEV=/dev/video0 ./target/release/squirrel-scanner
 cargo build --release && RUST_BACKTRACE=1 NO_PRELUDE=t VDEV=/dev/video0 gdbbin ./target/release/squirrel-scanner
 
+cargo +nightly build --release && RUST_BACKTRACE=1 NO_PRELUDE=t VDEV=/dev/video0 gdbbin ./target/release/squirrel-scanner
 
 ```
 

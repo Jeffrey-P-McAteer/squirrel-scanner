@@ -19,7 +19,7 @@ def main(args=sys.argv):
   if before_pull_hash != after_pull_hash:
     # We got updates, re-build and restart service!
     subprocess.run([
-      'cargo', 'build', '--release',
+      'cargo', '+nightly', 'build', '--release',
     ], check=True)
 
     subprocess.run([

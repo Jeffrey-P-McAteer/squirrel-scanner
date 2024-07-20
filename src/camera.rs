@@ -13,16 +13,6 @@ pub async fn camera_loop() -> Result<(), Box<dyn std::error::Error>> {
   use v4l::video::Capture;
   use v4l::io::traits::CaptureStream;
 
-  use ffimage::color::Rgb;
-  use ffimage::iter::PixelsExt;
-  use ffimage::iter::ColorConvertExt;
-  use ffimage::iter::BytesExt;
-  use ffimage_yuv::{
-      yuv::Yuv,
-      yuv422::{Yuv422, Yuyv},
-  };
-
-
 
   let mut video_device_path = "/dev/video2".to_string();
   if let Ok(val) = std::env::var("VDEV") {
@@ -73,6 +63,8 @@ pub async fn camera_loop() -> Result<(), Box<dyn std::error::Error>> {
   // vv re-calculated off last_n_frame_times at regular intervals
   let mut rolling_fps_val: f32;
 
+  let mut rgb_pixels_buff: Vec<u8> = vec![0u8; cam_fmt_w * cam_fmt_h * 3];
+
   let mut loop_i = 0;
   loop {
     loop_i += 1;
@@ -91,20 +83,7 @@ pub async fn camera_loop() -> Result<(), Box<dyn std::error::Error>> {
     // At some point it may make sense to move this to another task
     // polling a queue, but for now this is nice and simple.
     {
-
-      //let view = Image::<Yuv<u8>, _>::from_buf(&frame_yuyv422_buf, cam_fmt_w, cam_fmt_h)?;
-      //let mut rgb_buf = Image::<Rgb<u8>, _>::new(cam_fmt_w, cam_fmt_h, 0u8);
-      //view.convert(&mut rgb_buf);
-
-      let mut rgb_pixels_buff: [u8; 1280 * 720 * 3] = [0u8; 1280 * 720 * 3];
-
-      // YUV-to-RGB magic
-      frame_yuyv422_buf.iter()
-        .copied()
-        .pixels::<Yuv<u8>>()
-        .colorconvert::<Rgb<u8>>()
-        .bytes()
-        .write(&mut rgb_pixels_buff);
+      crate::utils::yuv422_to_rgb24(&frame_yuyv422_buf, &mut rgb_pixels_buff[..]);
 
 
       let cam_fmt_w = cam_fmt_w as u32;
