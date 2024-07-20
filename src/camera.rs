@@ -94,7 +94,7 @@ pub async fn camera_loop() -> Result<(), Box<dyn std::error::Error>> {
 
       // Iterate over the coordinates and pixels of the image
       for (x, y, pixel) in imgbuf.enumerate_pixels_mut() {
-        let rgb_buff_offset = ((y * cam_fmt_w) + x) as usize;
+        let rgb_buff_offset = ((y * cam_fmt_w * 3) + (x * 3) ) as usize;
         *pixel = image::Rgb([
           rgb_pixels_buff[rgb_buff_offset + 0],
           rgb_pixels_buff[rgb_buff_offset + 1],
