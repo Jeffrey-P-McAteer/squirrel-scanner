@@ -1,4 +1,6 @@
 
+pub static LAST_FRAME_PNG: [u8; 1280 * 720 * 3] = [0u8; 1280 * 720 * 3];
+pub static LAST_FRAME_PNG_BYTES_WRITTEN: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
 
 #[allow(unreachable_code)]
 pub async fn camera_loop() -> Result<(), Box<dyn std::error::Error>> {
@@ -15,8 +17,12 @@ pub async fn camera_loop() -> Result<(), Box<dyn std::error::Error>> {
 
   // Let's say we want to explicitly request another format
   let mut fmt = dev.format()?;
-  fmt.width = 1920;
-  fmt.height = 1080;
+  // fmt.width = 1920;
+  // fmt.height = 1080;
+
+  fmt.width = 1280;
+  fmt.height = 720;
+
   fmt.fourcc = v4l::FourCC::new(b"YUYV"); // https://stackoverflow.com/a/47736923
   // The camera we're using advertises the following color layout
   //   Raw       :     yuyv422 :           YUYV 4:2:2
@@ -34,6 +40,7 @@ pub async fn camera_loop() -> Result<(), Box<dyn std::error::Error>> {
   let cam_fmt_w = fmt.width as usize;
   let img_bpp = (fmt.size / (fmt.height * fmt.width)) as usize;
   println!("Camera img_bpp = {:?}", img_bpp);
+  println!("Camera cam_fmt_w,cam_fmt_h = {:?},{:?}", cam_fmt_w,cam_fmt_h);
 
   // To achieve the best possible performance, you may want to use a
   // UserBufferStream instance, but this is not supported on all devices,
@@ -43,11 +50,11 @@ pub async fn camera_loop() -> Result<(), Box<dyn std::error::Error>> {
 
   // Create the stream, which will internally 'allocate' (as in map) the
   // number of requested buffers for us.
-  let mut stream = v4l::io::mmap::Stream::with_buffers(&mut dev, v4l::buffer::Type::VideoCapture, 1)?;
+  let mut stream = v4l::io::mmap::Stream::with_buffers(&mut dev, v4l::buffer::Type::VideoCapture, 2)?;
 
   let mut last_n_frame_times: [std::time::SystemTime; 8] = [std::time::SystemTime::now(); 8];
   // vv re-calculated off last_n_frame_times at regular intervals
-  let mut rolling_fps_val: f32 = 0.0;
+  let mut rolling_fps_val: f32;
 
   let mut loop_i = 0;
   loop {
@@ -56,11 +63,82 @@ pub async fn camera_loop() -> Result<(), Box<dyn std::error::Error>> {
       loop_i = 0;
     }
 
-    let (frame_mjpg_buf, meta) = stream.next()?;
+    let (frame_yuyv422_buf, meta) = stream.next()?;
     last_n_frame_times[loop_i % last_n_frame_times.len()] = std::time::SystemTime::now();
     if loop_i % 6 == 0 {
       rolling_fps_val = calc_fps_val(&last_n_frame_times);
       println!("rolling_fps_val = {:?}", rolling_fps_val);
+    }
+
+    // For now we're going to go ahead and do image processing inline.
+    // At some point it may make sense to move this to another task
+    // polling a queue, but for now this is nice and simple.
+    {
+      let cam_fmt_w = cam_fmt_w as u32;
+      let cam_fmt_h = cam_fmt_h as u32;
+
+      let mut imgbuf = image::ImageBuffer::new(cam_fmt_w, cam_fmt_h);
+
+      let scalex = 3.0 / cam_fmt_w as f32;
+      let scaley = 3.0 / cam_fmt_h as f32;
+
+      // Iterate over the coordinates and pixels of the image
+      for (x, y, pixel) in imgbuf.enumerate_pixels_mut() {
+          let r = (0.3 * x as f32) as u8;
+          let b = (0.3 * y as f32) as u8;
+          *pixel = image::Rgb([r, 0, b]);
+      }
+
+      // A redundant loop to demonstrate reading image data
+      for x in 0..cam_fmt_w {
+          for y in 0..cam_fmt_h {
+              let cx = y as f32 * scalex - 1.5;
+              let cy = x as f32 * scaley - 1.5;
+
+              let c = num_complex::Complex::new(-0.4, 0.6);
+              let mut z = num_complex::Complex::new(cx, cy);
+
+              let mut i = 0;
+              while i < 255 && z.norm() <= 2.0 {
+                  z = z * z + c;
+                  i += 1;
+              }
+
+              let pixel = imgbuf.get_pixel_mut(x, y);
+              let image::Rgb(data) = *pixel;
+              *pixel = image::Rgb([data[0], i as u8, data[2]]);
+          }
+      }
+
+      /*
+      let mut byte_cursor = std::io::Cursor::new(LAST_FRAME_PNG);
+      if let Err(e) = imgbuf.write_to(&mut byte_cursor, image::ImageFormat::Png) {
+        eprintln!("[ imgbuf.write_to ] {:?}", e);
+      }
+
+      let bytes_written = byte_cursor.position();
+      if loop_i % 6 == 0 {
+        eprintln!("bc_buff.bytes_written() = {:?}", bytes_written);
+      }*/
+
+      let mut byte_cursor = std::io::Cursor::new(LAST_FRAME_PNG);
+      byte_cursor.set_position(0);
+      let mut png_encoder = image::codecs::png::PngEncoder::new(&mut byte_cursor);
+      if let Err(e) = imgbuf.write_with_encoder(png_encoder) {
+        eprintln!("[ imgbuf.write_to ] {:?}", e);
+      }
+
+      let bytes_written = byte_cursor.position();
+      if loop_i % 6 == 0 {
+        eprintln!("bc_buff.bytes_written() = {:?}", bytes_written);
+      }
+
+
+      LAST_FRAME_PNG_BYTES_WRITTEN.store(bytes_written as usize, std::sync::atomic::Ordering::SeqCst);
+
+      std::fs::write("/tmp/img.png", &LAST_FRAME_PNG[0..bytes_written as usize]).expect("Unable to write file");
+
+
     }
 
 

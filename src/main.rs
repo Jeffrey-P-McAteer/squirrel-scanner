@@ -1,4 +1,7 @@
 
+// Guess who doesn't care right now?
+#![allow(unused_variables)]
+
 mod utils;
 mod web;
 mod camera;
@@ -91,7 +94,7 @@ async fn main_async() -> Result<(), Box<dyn std::error::Error>> {
       let e_s = format!("{:?}", e);
       if e_s.contains("Interrupted") && e_s.contains("system") && e_s.contains("call") {
         // We see this on ctrl+c SIGTERM events, so play nice & decide to exit.
-        crate::PLEASE_EXIT_FLAG.store(true, std::sync::atomic::Ordering::SeqCst);
+        utils::do_nice_shutdown().await;
       }
     }
 

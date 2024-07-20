@@ -90,6 +90,10 @@ sudo ffmpeg \
     -pix_fmt bgra -f fbdev /dev/fb0
 
 
+# Local box tests
+cargo build --release && NO_PRELUDE=t VDEV=/dev/video0 ./target/release/squirrel-scanner
+
+
 ```
 
 

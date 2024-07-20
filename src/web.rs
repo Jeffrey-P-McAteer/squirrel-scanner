@@ -3,9 +3,23 @@
 pub async fn run_webserver_forever() -> Result<(), Box<dyn std::error::Error>> {
 
   loop {
-    if let Err(e) = run_webserver_once().await {
-      eprintln!("[ run_webserver_once ] {:?}", e)
+    if crate::PLEASE_EXIT_FLAG.load(std::sync::atomic::Ordering::Relaxed) {
+      break;
     }
+
+    let mut caught_sigterm = false;
+    if let Err(e) = run_webserver_once().await {
+      eprintln!("[ run_webserver_once ] {:?}", e);
+      let e_s = format!("{:?}", e);
+      if e_s.contains("Interrupted") && e_s.contains("system") && e_s.contains("call") {
+        caught_sigterm = true; // Cannot use .await points as long as {e} is in scope b/c not Send
+      }
+    }
+    if caught_sigterm {
+      // We see this on ctrl+c SIGTERM events, so play nice & decide to exit.
+      crate::utils::do_nice_shutdown().await;
+    }
+
     tokio::time::sleep(tokio::time::Duration::from_millis(250)).await;
   }
 
@@ -37,19 +51,18 @@ pub async fn run_webserver_once() -> Result<(), Box<dyn std::error::Error>> {
 
 
 #[actix_web::get("/frame")]
-async fn frame() -> impl actix_web::Responder {
-    format!("Hello !")
+async fn frame() -> actix_web::HttpResponse {
+  let png_bytes_len = crate::camera::LAST_FRAME_PNG_BYTES_WRITTEN.load(std::sync::atomic::Ordering::SeqCst);
+  actix_web::HttpResponse::Ok()
+    .content_type(actix_web::http::header::ContentType(mime::IMAGE_PNG))
+    //.insert_header(("X-Hdr", "sample"))
+    .body(&crate::camera::LAST_FRAME_PNG[..png_bytes_len])
 }
 
 
 #[actix_web::get("/shutdown")]
 async fn shutdown() -> impl actix_web::Responder {
-  crate::PLEASE_EXIT_FLAG.store(true, std::sync::atomic::Ordering::SeqCst);
-
-  tokio::task::spawn(async { // Allow /shutdown to serve a last response, then shutdown the webserver task.
-    tokio::time::sleep(tokio::time::Duration::from_millis(350)).await;
-    actix_web::rt::System::current().stop();
-  });
+  crate::utils::do_nice_shutdown().await;
 
   "Shutting Down..."
 }
