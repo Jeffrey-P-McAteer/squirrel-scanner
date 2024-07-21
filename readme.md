@@ -40,10 +40,11 @@
     - `sudo pacman -S onnxruntime-opt openmpi`
 
 
-# Software Pipeline Setup
+# Software Setup
 
  - Clone this repository to `/opt/squirrel-scanner`
- - run `sudo python install-systemd-services.py`
+ - Run `cargo +nightly build --release`
+ - Run `sudo python install-systemd-services.py`
 
 
 # SW/HW Research one-liners

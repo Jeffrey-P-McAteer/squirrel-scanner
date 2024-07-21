@@ -114,7 +114,21 @@ pub async fn run_frame_processor(cam_fmt_w: usize, cam_fmt_h: usize, mut frame_r
 
   let font = ab_glyph::FontRef::try_from_slice(include_bytes!("/usr/share/fonts/noto/NotoSansMono-Regular.ttf"))?;
 
+  // If model file does not exist, download it first!
+  const YOLOV8M_DOWNLOAD_URL: &'static str = "https://raw.githubusercontent.com/AndreyGermanov/yolov8_onnx_rust/main/yolov8m.onnx";
+  const YOLOV8M_LOCAL_FILE: &'static str = "/tmp/yolov8m.onnx";
+  if !std::path::Path::new(YOLOV8M_LOCAL_FILE).exists() {
+    let resp = reqwest::get(YOLOV8M_DOWNLOAD_URL).await?;
+    let body = resp.bytes().await?;
+    let mut out = std::fs::File::create(YOLOV8M_LOCAL_FILE)?;
+    let body = body.to_vec();
+    std::io::copy(&mut body[..].as_ref(), &mut out)?;
+  }
+
   let mut rgb_pixels_buff: Vec<u8> = vec![0u8; cam_fmt_w * cam_fmt_h * 3];
+
+  // See https://github.com/pykeio/ort/blob/main/examples/yolov8/examples/yolov8.rs
+  let model = ort::Session::builder()?.commit_from_file(YOLOV8M_LOCAL_FILE)?;
 
   loop {
 
@@ -152,32 +166,63 @@ pub async fn run_frame_processor(cam_fmt_w: usize, cam_fmt_h: usize, mut frame_r
             input[[0, 2, y, x]] = (b as f32) / 255.0;
         };
 
-        // If model file does not exist, download it first!
-        const yolov8m_download_url: &'static str = "https://raw.githubusercontent.com/AndreyGermanov/yolov8_onnx_rust/main/yolov8m.onnx";
-        const yolov8m_local_file: &'static str = "/tmp/yolov8m.onnx";
-        if !std::path::Path::new(yolov8m_local_file).exists() {
-          let resp = reqwest::get(yolov8m_download_url).await?;
-          let body = resp.bytes().await?;
-          let mut out = std::fs::File::create(yolov8m_local_file)?;
-          let body = body.to_vec();
-          std::io::copy(&mut body[..].as_ref(), &mut out)?;
-        }
-
-        let model = ort::Session::builder()?.commit_from_file(yolov8m_local_file)?;
         let outputs: ort::SessionOutputs = model.run(ort::inputs!["images" => input.view()]?)?;
         let output = outputs["output0"].try_extract_tensor::<f32>()?.t().into_owned();
 
+        let mut boxes = Vec::new();
+        let output = output.slice(ndarray::s![.., .., 0]);
+        for row in output.axis_iter(ndarray::Axis(0)) {
+          let row: Vec<_> = row.iter().copied().collect();
+          let (class_id, prob) = row
+            .iter()
+            // skip bounding box coordinates
+            .skip(4)
+            .enumerate()
+            .map(|(index, value)| (index, *value))
+            .reduce(|accum, row| if row.1 > accum.1 { row } else { accum })
+            .unwrap();
+          if prob < 0.5 {
+            continue;
+          }
+          let label = YOLOV8_CLASS_LABELS[class_id];
+          let xc = row[0] / 640. * (cam_fmt_w as f32);
+          let yc = row[1] / 640. * (cam_fmt_h as f32);
+          let w = row[2] / 640. * (cam_fmt_w as f32);
+          let h = row[3] / 640. * (cam_fmt_h as f32);
+          boxes.push((
+            BoundingBox {
+              x1: xc - w / 2.,
+              y1: yc - h / 2.,
+              x2: xc + w / 2.,
+              y2: yc + h / 2.
+            },
+            label,
+            prob
+          ));
+        }
 
+        boxes.sort_by(|box1, box2| box2.2.total_cmp(&box1.2));
+        let mut result = Vec::new();
 
-        // let env = std::sync::Arc::new(ort::init().with_name("YOLOv8").commit().unwrap());
-        // let model = ort::Session::builder().unwrap().with_model_from_file("/j/downloads/yolov8m.onnx").unwrap();
-        // let input_as_values = &input.as_standard_layout();
-        // let model_inputs = vec![ort::Value::from_array(model.allocator(), input_as_values).unwrap()];
-        // let outputs = model.run(model_inputs).unwrap();
-        // let output = outputs.get(0).unwrap().try_extract::<f32>().unwrap().view().t().into_owned();
+        while !boxes.is_empty() {
+          result.push(boxes[0]);
+          boxes = boxes
+            .iter()
+            .filter(|box1| intersection(&boxes[0].0, &box1.0) / union(&boxes[0].0, &box1.0) < 0.7)
+            .copied()
+            .collect();
+        }
 
-        println!("output = {:?}", output);
-
+        // Draw some debug text along the bottom
+        let dbg_text = format!("boxes = {:?}\nresult = {:?}", boxes, result);
+        println!("{}", dbg_text);
+        imageproc::drawing::draw_text_mut(
+          &mut imgbuf,
+          image::Rgb([255, 255, 255]),
+          4, cam_fmt_h as i32 - 72, ab_glyph::PxScale::from(18.0),
+          &font,
+          &dbg_text[..]
+        );
       }
 
 
@@ -214,4 +259,35 @@ pub async fn run_frame_processor(cam_fmt_w: usize, cam_fmt_h: usize, mut frame_r
   }
 
   Ok(())
+}
+
+
+
+
+#[rustfmt::skip]
+const YOLOV8_CLASS_LABELS: [&str; 80] = [
+    "person", "bicycle", "car", "motorcycle", "airplane", "bus", "train", "truck", "boat", "traffic light",
+  "fire hydrant", "stop sign", "parking meter", "bench", "bird", "cat", "dog", "horse", "sheep", "cow", "elephant",
+  "bear", "zebra", "giraffe", "backpack", "umbrella", "handbag", "tie", "suitcase", "frisbee", "skis", "snowboard",
+  "sports ball", "kite", "baseball bat", "baseball glove", "skateboard", "surfboard", "tennis racket", "bottle",
+  "wine glass", "cup", "fork", "knife", "spoon", "bowl", "banana", "apple", "sandwich", "orange", "broccoli",
+  "carrot", "hot dog", "pizza", "donut", "cake", "chair", "couch", "potted plant", "bed", "dining table", "toilet",
+  "tv", "laptop", "mouse", "remote", "keyboard", "cell phone", "microwave", "oven", "toaster", "sink", "refrigerator",
+  "book", "clock", "vase", "scissors", "teddy bear", "hair drier", "toothbrush"
+];
+
+#[derive(Debug, Clone, Copy)]
+struct BoundingBox {
+  x1: f32,
+  y1: f32,
+  x2: f32,
+  y2: f32
+}
+
+fn intersection(box1: &BoundingBox, box2: &BoundingBox) -> f32 {
+  (box1.x2.min(box2.x2) - box1.x1.max(box2.x1)) * (box1.y2.min(box2.y2) - box1.y1.max(box2.y1))
+}
+
+fn union(box1: &BoundingBox, box2: &BoundingBox) -> f32 {
+  ((box1.x2 - box1.x1) * (box1.y2 - box1.y1)) + ((box2.x2 - box2.x1) * (box2.y2 - box2.y1)) - intersection(box1, box2)
 }
