@@ -73,14 +73,16 @@ pub async fn camera_loop() -> Result<(), Box<dyn std::error::Error>> {
 
     let (frame_yuyv422_buf, meta) = stream.next()?;
     last_n_frame_times[loop_i % last_n_frame_times.len()] = std::time::SystemTime::now();
-    if loop_i % 6 == 0 {
+    if loop_i % 4 == 0 {
       let rolling_fps_val = calc_fps_val(&last_n_frame_times);
       CAMERA_ROLLING_FPS.store(rolling_fps_val, std::sync::atomic::Ordering::Relaxed);
-      println!("rolling_fps_val = {:?}", rolling_fps_val);
+      if loop_i % 14 == 0 {
+        println!("rolling_fps_val = {:?}", rolling_fps_val);
+      }
     }
 
     if let Err(e) = frame_tx.send( frame_yuyv422_buf.to_vec() ).await {
-      let is_ignorable = e.to_string().contains("SendError");
+      let is_ignorable = e.to_string().contains("channel closed");
       if !is_ignorable {
         eprintln!("[ frame_tx.send ] {:?} (to_string={})", e, e.to_string());
       }
@@ -286,15 +288,19 @@ pub async fn run_frame_processor(cam_fmt_w: usize, cam_fmt_h: usize, mut frame_r
 
       // If we have an open framebuffer, write imgbuf data to it
       if let Ok(ref mut fb) = maybe_framebuffer {
-        println!("Writing to framebuffer!");
+
         for (x, y, px) in imgbuf.enumerate_pixels() {
-            let start_index = (((y * fb_line_length) + x) * fb_bytespp) as usize;
-            fb_frame[start_index] = px.0[0]; // assume R
-            fb_frame[start_index + 1] = px.0[1]; // Assume G
-            fb_frame[start_index + 2] = px.0[2]; // Assume B
+            let start_index = ((y * fb_line_length) + (x * fb_bytespp) ) as usize;
+            fb_frame[start_index] =     px.0[2]; // Assume R == B
+            fb_frame[start_index + 1] = px.0[1]; // Assume G == G
+            fb_frame[start_index + 2] = px.0[0]; // Assume B == R
         }
 
         fb.write_frame(&fb_frame);
+
+        // if let Err(e) = std::fs::write(&framebuffer_path, &fb_frame) { // Cheap OS-level copy
+        //   eprintln!("[ fs::write(framebuffer_path ] {:?}", e);
+        // }
 
       }
 

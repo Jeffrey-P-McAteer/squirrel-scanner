@@ -2,11 +2,13 @@
 #[allow(unreachable_code)]
 pub async fn run_webserver_forever() -> Result<(), Box<dyn std::error::Error>> {
 
+  let mut num_webserver_restarts = 0;
+
   loop {
     if crate::PLEASE_EXIT_FLAG.load(std::sync::atomic::Ordering::Relaxed) {
       break;
     }
-
+    num_webserver_restarts += 1;
     let mut caught_sigterm = false;
     if let Err(e) = run_webserver_once().await {
       eprintln!("[ run_webserver_once ] {:?}", e);
@@ -15,7 +17,7 @@ pub async fn run_webserver_forever() -> Result<(), Box<dyn std::error::Error>> {
         caught_sigterm = true; // Cannot use .await points as long as {e} is in scope b/c not Send
       }
     }
-    if caught_sigterm {
+    if caught_sigterm || num_webserver_restarts > 8 {
       // We see this on ctrl+c SIGTERM events, so play nice & decide to exit.
       crate::utils::do_nice_shutdown().await;
     }
