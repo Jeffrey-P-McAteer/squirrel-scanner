@@ -46,7 +46,7 @@ pub async fn camera_loop() -> Result<(), Box<dyn std::error::Error>> {
   println!("Camera img_bpp = {:?}", img_bpp);
   println!("Camera cam_fmt_w,cam_fmt_h = {:?},{:?}", cam_fmt_w,cam_fmt_h);
 
-  let (frame_tx, frame_rx) = tokio::sync::mpsc::channel::<Vec<u8>>(16);
+  let (frame_tx, frame_rx) = tokio::sync::mpsc::channel::<Vec<u8>>(2);
 
   let task_cam_fmt_w = cam_fmt_w;
   let task_cam_fmt_h = cam_fmt_h;
@@ -60,7 +60,7 @@ pub async fn camera_loop() -> Result<(), Box<dyn std::error::Error>> {
 
   // Create the stream, which will internally 'allocate' (as in map) the
   // number of requested buffers for us.
-  let mut stream = v4l::io::mmap::Stream::with_buffers(&mut dev, v4l::buffer::Type::VideoCapture, 4)?;
+  let mut stream = v4l::io::mmap::Stream::with_buffers(&mut dev, v4l::buffer::Type::VideoCapture, 2)?;
 
   let mut last_n_frame_times: [std::time::SystemTime; 8] = [std::time::SystemTime::now(); 8];
 
@@ -214,7 +214,7 @@ pub async fn run_frame_processor(cam_fmt_w: usize, cam_fmt_h: usize, mut frame_r
         }
 
         // Draw some debug text along the bottom
-        let dbg_text = format!("boxes = {:?}\nresult = {:?}", boxes, result);
+        let dbg_text = format!("result = {:?}", result);
         println!("{}", dbg_text);
         imageproc::drawing::draw_text_mut(
           &mut imgbuf,
@@ -223,6 +223,24 @@ pub async fn run_frame_processor(cam_fmt_w: usize, cam_fmt_h: usize, mut frame_r
           &font,
           &dbg_text[..]
         );
+
+        // Now draw the identifying box markers
+        for (bbox, label, confidence) in result.iter() {
+          imageproc::drawing::draw_hollow_rect_mut(
+            &mut imgbuf,
+            imageproc::rect::Rect::at(bbox.x1 as i32, bbox.y1 as i32).of_size((bbox.x2 - bbox.x1) as u32, (bbox.y2 - bbox.y1) as u32),
+            image::Rgb([255, 255, 255]),
+          );
+
+          let label_txt = format!("{} ({:.1})", label, confidence);
+          imageproc::drawing::draw_text_mut(
+            &mut imgbuf,
+            image::Rgb([255, 255, 255]),
+            bbox.x1 as i32 + 6, bbox.y1 as i32 - 12, ab_glyph::PxScale::from(18.0),
+            &font,
+            &label_txt[..]
+          );
+        }
       }
 
 
