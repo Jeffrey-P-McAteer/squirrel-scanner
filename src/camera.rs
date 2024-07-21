@@ -109,6 +109,7 @@ fn calc_fps_val(last_n_frame_times: &[std::time::SystemTime]) -> f32 {
 
 #[allow(unreachable_code)]
 pub async fn run_frame_processor(cam_fmt_w: usize, cam_fmt_h: usize, mut frame_rx: tokio::sync::mpsc::Receiver<Vec<u8>>) -> Result<(), Box<dyn std::error::Error>> {
+  use image::GenericImageView;
   // frame_rx produces raw YUV vectors of image data
 
   let font = ab_glyph::FontRef::try_from_slice(include_bytes!("/usr/share/fonts/noto/NotoSansMono-Regular.ttf"))?;
@@ -134,6 +135,51 @@ pub async fn run_frame_processor(cam_fmt_w: usize, cam_fmt_h: usize, mut frame_r
           rgb_pixels_buff[rgb_buff_offset + 2]
         ]);
       }
+
+      {
+        // We convert the image to a smaller copy, run the ONNX runtime over it,
+        // then convert small-space detection coordinates back to the original image size
+        // and use _that_ to draw overlays etc.
+        let onx_imgbuf = image::DynamicImage::ImageRgb8(image::RgbImage::from_raw(cam_fmt_w, cam_fmt_h, rgb_pixels_buff.clone() ).expect("Cannot read RGB image!") );
+        let onx_imgbuf = onx_imgbuf.resize_exact(640, 640, image::imageops::FilterType::CatmullRom);
+        let mut input = ndarray::Array::zeros((1, 3, 640, 640)).into_dyn();
+        for pixel in onx_imgbuf.pixels() {
+            let x = pixel.0 as usize;
+            let y = pixel.1 as usize;
+            let [r,g,b,_] = pixel.2.0;
+            input[[0, 0, y, x]] = (r as f32) / 255.0;
+            input[[0, 1, y, x]] = (g as f32) / 255.0;
+            input[[0, 2, y, x]] = (b as f32) / 255.0;
+        };
+
+        // If model file does not exist, download it first!
+        const yolov8m_download_url: &'static str = "https://raw.githubusercontent.com/AndreyGermanov/yolov8_onnx_rust/main/yolov8m.onnx";
+        const yolov8m_local_file: &'static str = "/tmp/yolov8m.onnx";
+        if !std::path::Path::new(yolov8m_local_file).exists() {
+          let resp = reqwest::get(yolov8m_download_url).await?;
+          let body = resp.bytes().await?;
+          let mut out = std::fs::File::create(yolov8m_local_file)?;
+          let body = body.to_vec();
+          std::io::copy(&mut body[..].as_ref(), &mut out)?;
+        }
+
+        let model = ort::Session::builder()?.commit_from_file(yolov8m_local_file)?;
+        let outputs: ort::SessionOutputs = model.run(ort::inputs!["images" => input.view()]?)?;
+        let output = outputs["output0"].try_extract_tensor::<f32>()?.t().into_owned();
+
+
+
+        // let env = std::sync::Arc::new(ort::init().with_name("YOLOv8").commit().unwrap());
+        // let model = ort::Session::builder().unwrap().with_model_from_file("/j/downloads/yolov8m.onnx").unwrap();
+        // let input_as_values = &input.as_standard_layout();
+        // let model_inputs = vec![ort::Value::from_array(model.allocator(), input_as_values).unwrap()];
+        // let outputs = model.run(model_inputs).unwrap();
+        // let output = outputs.get(0).unwrap().try_extract::<f32>().unwrap().view().t().into_owned();
+
+        println!("output = {:?}", output);
+
+      }
+
 
       let rolling_fps_val = CAMERA_ROLLING_FPS.load(std::sync::atomic::Ordering::Relaxed);
       let now = chrono::Local::now();

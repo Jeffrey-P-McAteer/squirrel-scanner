@@ -37,6 +37,8 @@
     - `sudo pacman -S v4l-utils`
     - `sudo pacman -S ffmpeg`
     - `sudo pacman -S opendesktop-fonts noto-fonts gnu-free-fonts adobe-source-code-pro-fonts xorg-fonts-100dpi xorg-fonts-75dpi xorg-fonts-alias-100dpi xorg-fonts-alias-75dpi`
+    - `sudo pacman -S onnxruntime-opt`
+
 
 # Software Pipeline Setup
 
