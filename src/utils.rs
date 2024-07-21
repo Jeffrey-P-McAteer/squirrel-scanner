@@ -20,12 +20,23 @@ pub async fn is_proc_running(proc_name: &str) -> bool {
 
 pub async fn do_nice_shutdown() {
 
+  // Important: re-enable text mode!
+  if let Err(e) = framebuffer::Framebuffer::set_kd_mode(framebuffer::KdMode::Text) {
+    eprintln!("[ Framebuffer::set_kd_mode Text ] {:?}", e);
+  }
+
   crate::PLEASE_EXIT_FLAG.store(true, std::sync::atomic::Ordering::SeqCst);
+
+  println!("= = = Shutting down nicely! = = =");
 
   tokio::task::spawn(async { // Shutdown webserver after a 350ms delay to allow other tasks to exit
     tokio::time::sleep(tokio::time::Duration::from_millis(350)).await;
     if let Some(current_system) = actix_web::rt::System::try_current() {
       current_system.stop();
+    }
+    // Important: re-enable text mode!
+    if let Err(e) = framebuffer::Framebuffer::set_kd_mode(framebuffer::KdMode::Text) {
+      eprintln!("[ Framebuffer::set_kd_mode Text ] {:?}", e);
     }
   });
 

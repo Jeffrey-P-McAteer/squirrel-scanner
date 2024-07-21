@@ -16,6 +16,7 @@ ab_glyph = "0.2"
 chrono = "0.4"
 atomic_float = "1.0"
 reqwest = "0.12"
+framebuffer = "0.3"
 
 # ONNX runtime
 ort = "2.0.0-rc.4"

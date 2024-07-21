@@ -80,7 +80,10 @@ pub async fn camera_loop() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     if let Err(e) = frame_tx.send( frame_yuyv422_buf.to_vec() ).await {
-      eprintln!("[ frame_tx.send ] {:?}", e);
+      let is_ignorable = e.to_string().contains("SendError");
+      if !is_ignorable {
+        eprintln!("[ frame_tx.send ] {:?} (to_string={})", e, e.to_string());
+      }
     }
 
     // Exit if requested by another component
@@ -129,6 +132,29 @@ pub async fn run_frame_processor(cam_fmt_w: usize, cam_fmt_h: usize, mut frame_r
 
   // See https://github.com/pykeio/ort/blob/main/examples/yolov8/examples/yolov8.rs
   let model = ort::Session::builder()?.commit_from_file(YOLOV8M_LOCAL_FILE)?;
+
+  // Finally we also dump pixels to /dev/fb0 for funsies
+  let mut framebuffer_path = "/dev/fb0".to_string();
+  if let Ok(val) = std::env::var("FB") {
+    framebuffer_path = val.to_string();
+  }
+  println!("Using framebuffer device {}", &framebuffer_path);
+  let mut maybe_framebuffer = framebuffer::Framebuffer::new(&framebuffer_path[..]);
+  let mut fb_w = 1;
+  let mut fb_h = 1;
+  let mut fb_line_length = 1;
+  let mut fb_bytespp = 1;
+  if let Ok(ref mut fb) = maybe_framebuffer {
+    if let Err(e) = framebuffer::Framebuffer::set_kd_mode(framebuffer::KdMode::Graphics) {
+      eprintln!("[ Framebuffer::set_kd_mode Graphics ] {:?}", e);
+    }
+    fb_w = fb.var_screen_info.xres;
+    fb_h = fb.var_screen_info.yres;
+    fb_line_length = fb.fix_screen_info.line_length;
+    fb_bytespp = fb.var_screen_info.bits_per_pixel / 8;
+  }
+  let mut fb_frame = vec![0u8; (fb_line_length * fb_h) as usize];
+  println!("fb_w={} fb_h={} fb_bytespp={} fb_line_length={}", fb_w, fb_h, fb_bytespp, fb_line_length);
 
   loop {
 
@@ -255,6 +281,24 @@ pub async fn run_frame_processor(cam_fmt_w: usize, cam_fmt_h: usize, mut frame_r
         &ts_text[..]
       );
 
+      // DONE drawing!
+      let imgbuf = imgbuf;
+
+      // If we have an open framebuffer, write imgbuf data to it
+      if let Ok(ref mut fb) = maybe_framebuffer {
+        println!("Writing to framebuffer!");
+        for (x, y, px) in imgbuf.enumerate_pixels() {
+            let start_index = (((y * fb_line_length) + x) * fb_bytespp) as usize;
+            fb_frame[start_index] = px.0[0]; // assume R
+            fb_frame[start_index + 1] = px.0[1]; // Assume G
+            fb_frame[start_index + 2] = px.0[2]; // Assume B
+        }
+
+        fb.write_frame(&fb_frame);
+
+      }
+
+
       if let Ok(mut camera_last_frame_jpeg) = CAMERA_LAST_FRAME_JPEG.write() {
         let mut seekable_buf: std::io::Cursor<Vec<u8>> = std::io::Cursor::new( Vec::new() );
         if let Err(e) = imgbuf.write_to(&mut seekable_buf, image::ImageFormat::Jpeg) {
@@ -262,7 +306,6 @@ pub async fn run_frame_processor(cam_fmt_w: usize, cam_fmt_h: usize, mut frame_r
         }
         *camera_last_frame_jpeg = seekable_buf.into_inner();
       }
-
 
       if let Ok(mut camera_last_frame_imgbuf) = CAMERA_LAST_FRAME_IMGBUF.write() {
         *camera_last_frame_imgbuf = imgbuf;
@@ -274,6 +317,11 @@ pub async fn run_frame_processor(cam_fmt_w: usize, cam_fmt_h: usize, mut frame_r
     if crate::PLEASE_EXIT_FLAG.load(std::sync::atomic::Ordering::Relaxed) {
       break;
     }
+  }
+
+  // Important: re-enable text mode!
+  if let Err(e) = framebuffer::Framebuffer::set_kd_mode(framebuffer::KdMode::Text) {
+    eprintln!("[ Framebuffer::set_kd_mode Text ] {:?}", e);
   }
 
   Ok(())
