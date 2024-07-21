@@ -229,14 +229,14 @@ pub async fn run_frame_processor(cam_fmt_w: usize, cam_fmt_h: usize, mut frame_r
           imageproc::drawing::draw_hollow_rect_mut(
             &mut imgbuf,
             imageproc::rect::Rect::at(bbox.x1 as i32, bbox.y1 as i32).of_size((bbox.x2 - bbox.x1) as u32, (bbox.y2 - bbox.y1) as u32),
-            image::Rgb([255, 255, 255]),
+            image::Rgb([176, 176, 176]),
           );
 
           let label_txt = format!("{} ({:.1})", label, confidence);
           imageproc::drawing::draw_text_mut(
             &mut imgbuf,
             image::Rgb([255, 255, 255]),
-            bbox.x1 as i32 + 6, bbox.y1 as i32 - 12, ab_glyph::PxScale::from(18.0),
+            bbox.x1 as i32 + 6, bbox.y1 as i32 + 8, ab_glyph::PxScale::from(18.0),
             &font,
             &label_txt[..]
           );
