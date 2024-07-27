@@ -1,0 +1,27 @@
+body {
+  --text-color: #222;
+  --bkg-color: #fff;
+}
+
+@media (prefers-color-scheme: dark) {
+  body {
+    --text-color: #eee;
+    --bkg-color: #121212;
+  }
+}
+
+* {
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+body {
+  background: var(--bkg-color);
+}
+
+h1, h2, h3,
+p {
+  color: var(--text-color);
+}
+
+
+

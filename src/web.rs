@@ -64,7 +64,7 @@ async fn index() -> actix_web::HttpResponse {
       )
 }
 
-#[actix_web::get("/style")]
+#[actix_web::get("/style.css")]
 async fn style() -> actix_web::HttpResponse {
   actix_web::HttpResponse::Ok()
       .content_type(actix_web::http::header::ContentType(mime::TEXT_CSS_UTF_8))
