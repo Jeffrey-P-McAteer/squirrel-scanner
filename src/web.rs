@@ -40,6 +40,8 @@ pub async fn run_webserver_once() -> Result<(), Box<dyn std::error::Error>> {
 
   actix_web::HttpServer::new(|| {
       actix_web::App::new()
+        .service(index)
+        .service(style)
         .service(frame)
         .service(fast_frame)
         .service(shutdown)
@@ -50,6 +52,25 @@ pub async fn run_webserver_once() -> Result<(), Box<dyn std::error::Error>> {
   .await?;
 
   Ok(())
+}
+
+
+#[actix_web::get("/")]
+async fn index() -> actix_web::HttpResponse {
+  actix_web::HttpResponse::Ok()
+      .content_type(actix_web::http::header::ContentType(mime::TEXT_HTML_UTF_8))
+      .body(
+        &include_bytes!("web_index.html")[..]
+      )
+}
+
+#[actix_web::get("/style")]
+async fn style() -> actix_web::HttpResponse {
+  actix_web::HttpResponse::Ok()
+      .content_type(actix_web::http::header::ContentType(mime::TEXT_CSS_UTF_8))
+      .body(
+        &include_bytes!("web_style.css")[..]
+      )
 }
 
 
