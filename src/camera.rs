@@ -46,7 +46,7 @@ pub async fn camera_loop() -> Result<(), Box<dyn std::error::Error>> {
   println!("Camera img_bpp = {:?}", img_bpp);
   println!("Camera cam_fmt_w,cam_fmt_h = {:?},{:?}", cam_fmt_w,cam_fmt_h);
 
-  let (frame_tx, frame_rx) = tokio::sync::mpsc::channel::<Vec<u8>>(2);
+  let (frame_tx, frame_rx) = tokio::sync::mpsc::channel::<Vec<u8>>(3); // max capacity of 3, where "capacity" is empty slots in queue
 
   let task_cam_fmt_w = cam_fmt_w;
   let task_cam_fmt_h = cam_fmt_h;
@@ -158,6 +158,8 @@ pub async fn run_frame_processor(cam_fmt_w: usize, cam_fmt_h: usize, mut frame_r
   let mut fb_frame = vec![0u8; (fb_line_length * fb_h) as usize];
   println!("fb_w={} fb_h={} fb_bytespp={} fb_line_length={}", fb_w, fb_h, fb_bytespp, fb_line_length);
 
+  let mut result = Vec::new(); // re-used even if model is not invoked across frames
+
   loop {
 
     if let Some(frame_yuyv422_buf) = frame_rx.recv().await {
@@ -178,7 +180,11 @@ pub async fn run_frame_processor(cam_fmt_w: usize, cam_fmt_h: usize, mut frame_r
         ]);
       }
 
-      {
+      if frame_rx.capacity() <= 1 { // If queue is full, do not call model.run
+        println!("Skipping AI model analysis...");
+      }
+      else {
+        println!("Performing AI model analysis...");
         // We convert the image to a smaller copy, run the ONNX runtime over it,
         // then convert small-space detection coordinates back to the original image size
         // and use _that_ to draw overlays etc.
@@ -230,7 +236,9 @@ pub async fn run_frame_processor(cam_fmt_w: usize, cam_fmt_h: usize, mut frame_r
         }
 
         boxes.sort_by(|box1, box2| box2.2.total_cmp(&box1.2));
-        let mut result = Vec::new();
+        //let mut result = Vec::new();
+
+        result.clear();
 
         while !boxes.is_empty() {
           result.push(boxes[0]);
@@ -241,6 +249,10 @@ pub async fn run_frame_processor(cam_fmt_w: usize, cam_fmt_h: usize, mut frame_r
             .collect();
         }
 
+      }
+
+
+      { // No matter if result is new or old, draw them
         // Draw some debug text along the bottom
         let dbg_text = format!("result = {:?}", result);
         println!("{}", dbg_text);

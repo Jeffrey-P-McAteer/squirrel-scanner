@@ -96,7 +96,7 @@ async fn fast_frame() -> actix_web::HttpResponse {
     let encoded_img_bytes = (*encoded_img_bytes).clone();
     actix_web::HttpResponse::Ok()
       .content_type(actix_web::http::header::ContentType(mime::IMAGE_JPEG))
-      .insert_header(("Refresh", "1")) // Hint to browsers to refresh page after 1 second
+      .insert_header(("Refresh", "0.25")) // Hint to browsers to refresh page after 1 second
       .body(encoded_img_bytes)
   }
   else {
