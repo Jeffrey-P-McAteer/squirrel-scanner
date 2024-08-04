@@ -27,3 +27,21 @@ ultralytics.checks()
 print(f'ultralytics.YOLO = {ultralytics.YOLO}')
 
 
+
+try:
+  import anylabeling
+except:
+  subprocess.run([
+    sys.executable, '-m', 'pip', 'install', f'--target={site_packages}', 'anylabeling', 'anylabeling-gpu'
+  ])
+  import anylabeling
+
+print(f'anylabeling = {anylabeling}')
+
+subp_env = dict(os.environ)
+subp_env['PYTHONPATH'] = subp_env.get('PYTHONPATH', '')+':'+site_packages+':'
+subprocess.run([
+  sys.executable, '-m', 'anylabeling'
+], env=subp_env)
+
+
