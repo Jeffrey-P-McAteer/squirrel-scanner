@@ -20,7 +20,6 @@ except:
 print(f'ultralytics = {ultralytics}')
 ultralytics.checks()
 
-import ultralytics.YOLO
 print(f'ultralytics.YOLO = {ultralytics.YOLO}')
 
 
